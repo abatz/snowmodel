@@ -22,7 +22,11 @@ tmax=tmax-273.15;
 tmin=tmin-273.15;
 tdew=dewpoint(sph,elevation);
 tdew=tdew-273.15;
+
+% run normal snowmelt model ignoring contribution from sublimation
 [SnowMelt,SnowWaterEq]=runsnowmelt_monthly(cloudiness(:),tmax(:),tmin(:),ppt(:),srad(:),tdew(:),vs(:),elevation);
+
+% run snowmodel with sublimation contribution
 [SnowMelt1,SnowWaterEq1,X,Sublimation]=runsnowmelt_monthly_wlatent(cloudiness(:),tmax(:),tmin(:),ppt(:),srad(:),tdew(:),vs(:),elevation);
 figure(1);
 subplot(2,1,1)
