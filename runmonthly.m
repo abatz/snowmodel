@@ -23,15 +23,8 @@ tmin=tmin-273.15;
 tdew=dewpoint(sph,elevation);
 tdew=tdew-273.15;
 
-% run normal snowmelt model ignoring contribution from sublimation
-[SnowMelt,SnowWaterEq]=runsnowmelt_monthly(cloudiness(:),tmax(:),tmin(:),ppt(:),srad(:),tdew(:),vs(:),elevation);
-<<<<<<< HEAD
+% run normal snowmelt model w/contribution from sublimation
 [SnowMelt1,SnowWaterEq1,X1,Sublimation,SnowTemp1,E1,Energy1,Albedo]=runsnowmelt_monthly_sublimation(cloudiness(:),tmax(:),tmin(:),ppt(:),srad(:),tdew(:),vs(:),elevation,1);
-=======
-
-% run snowmodel with sublimation contribution
-[SnowMelt1,SnowWaterEq1,X,Sublimation]=runsnowmelt_monthly_wlatent(cloudiness(:),tmax(:),tmin(:),ppt(:),srad(:),tdew(:),vs(:),elevation);
->>>>>>> origin/master
 figure(1);
 subplot(2,1,1)
 plot(1979:1/12:2018.99,SnowWaterEq(:),'k');hold on;plot(1979:1/12:2018.99,SnowWaterEq1(:),'b');legend({'SWE';'SWE_{sublimation}'})
@@ -58,9 +51,24 @@ srad=srad/.0864/1000;
  DEF=reshape(DEF,size(tmax));
  SOILS=reshape(SOILS,size(tmax));
  RUNOFF=reshape(RUNOFF,size(tmax));
- subplot(2,1,1)
+ subplot(2,2,1)
  plot(nanmean(SOILS,2));
  hold on
- plot(nanmean(AET,2),'r');legend({'SOIL';'AET'})
+ plot(nanmean(AET,2),'r');
+ plot(nanmean(DEF,2),'k');
+ legend({'SOIL';'AET';'DEF'})
+ 
+  subplot(2,2,2)
+ plot(nanmean(reshape(ppt+SnowMelt1*1e3,12,40),2));
+ hold on
+ plot(nanmean(RUNOFF,2),'r');
+ plot(nanmean(reshape(ppt,12,40),2),'k');
+ legend({'Rain+Melt';'Runoff';'PPT'})
+ 
  subplot(2,1,2);
- plot(1979:2017,nanmean(SOILS(6:9,1:39),1));
+ plot(1979:2017,zscore(nanmean(SOILS(6:9,1:39),1)));
+ hold on;
+ plot(1979:2017,zscore(nansum(AET(:,1:39),1)));
+ hold on;
+ plot(1979:2017,zscore(nansum(DEF(:,1:39),1)));
+ legend({'SOIL';'AET';'DEF'})
