@@ -1,3 +1,5 @@
+% load data directly from NKN thredds server for a given lat/lon
+% this runs the daily snowmodel
 lat=ncread('http://thredds.northwestknowledge.net:8080/thredds/dodsC/MET/rmax/rmax_2017.nc','lat');
 lon=ncread('http://thredds.northwestknowledge.net:8080/thredds/dodsC/MET/rmax/rmax_2017.nc','lon');
 sph=ncread('http://thredds.northwestknowledge.net:8080/thredds/dodsC/MET/sph/sph_2017.nc','specific_humidity',[63 190 1],[1 1 365],[1 1 1]);
