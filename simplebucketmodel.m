@@ -28,7 +28,11 @@ lastsoil=soil;
 for j=1:length(PPT)
     
 deltasoil=PPT(j)-PET(j);
+
 if deltasoil<0
+    if deltasoil>lastsoil
+        deltasoil=lastsoil;  % can't ask for more than is available in soil
+    end
     if SnowDepth(j)<1 % this means we can take from soil column
 % can not drain more than is in soil!!!
     drainsoil=-deltasoil.*(1-exp(-lastsoil./AWC));
@@ -40,7 +44,7 @@ if deltasoil<0
         % this is where there is snowpack and deficit after sublimaton
         AET(j)=0; % could equal sublimation, but this is NOT used by plants
         DEF(j)=PET(j)-Sublimation(j);
-        lastsoil=lastsoil;
+        lastsoil=lastsoil; % soil is offlimits when snow is present!
         RUNOFF(j)=0+INIT_RO(j);
     end
 else
