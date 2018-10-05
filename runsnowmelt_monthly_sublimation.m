@@ -69,8 +69,8 @@ for i=1:length(vs) rh(i)=(log((10+0.001)/0.001)*log((2+0.0002)/0.0002))/(0.41*0.
 %##  Initial Values.  
 	SnowWaterEqYest = startingSnowDepth_m * startingSnowDensity_kg_m3 / WaterDens;%		
 	SnowDepth(1)	= startingSnowDepth_m;	
-	if NewSnow(1)>0;
-        Albedo(1)=0.98-(0.98-0.50)*exp(-40*NewSnow(1)/30);
+	if NewSnow(1)-R_m(1)>0;
+        Albedo(1)=0.98-(0.98-0.50)*exp(-40*(NewSnow(1)-R_m(1))/30);
     else
 %    f=find(startingSnowDepth_m == 0 & NewSnow==0);
         Albedo(1)=max(groundAlbedo,0.5+(groundAlbedo-0.85)/10);
