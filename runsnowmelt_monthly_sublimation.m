@@ -8,7 +8,6 @@ function [SnowMelt,SnowWaterEq,SnowDepth,Sublimation,SnowTemp,E,Energy,Albedo]=r
     WaterDens =1000;%			# kg/m3
 	lambda = 3.35E5;%			# latent heat of fusion (kJ/m3)
 	lambdaV = 2500;%				# (kJ/kg) latent heat of vaporization
-    lambdaS = 2850;%				# (kJ/kg) latent heat of vaporization
 	SnowHeatCap = 2.1;%			# kJ/kg/C
 	LatHeatFreez = 333.3;%		# kJ/kg
 	Cw = 4.2E3;%				# Heat Capacity of Water (kJ/m3/C)
@@ -47,8 +46,8 @@ for i=1:length(vs) rh(i)=(log((10+0.001)/0.001)*log((2+0.0002)/0.0002))/(0.41*0.
     
 %#  New Variables	:
     SnowTemp 		=zeros(size(precip_mm));;% 		# Degrees C
-	rhos 		= calcsatvap(SnowTemp);%	# 	vapor density at surface (kg/m3)
-	rhoa 		= calcsatvap(tdmean);%		#	vapor density of atmoshpere (kg/m3) 
+	rhos 		= calcsatvap2(SnowTemp);%	# 	vapor density at surface (kg/m3)
+	rhoa 		= calcsatvap2(tdmean);%		#	vapor density of atmoshpere (kg/m3) 
 	DCoef 		=zeros(size(precip_mm));;%				#   Density Coefficient (-) (Simplified version)
 	SnowMelt 		=zeros(size(precip_mm));%				#  (m)
 	Albedo 			=groundAlbedo*ones(size(precip_mm));;% This will change for days with snow
@@ -62,7 +61,7 @@ for i=1:length(vs) rh(i)=(log((10+0.001)/0.001)*log((2+0.0002)/0.0002))/(0.41*0.
 	Lt 		=zeros(size(precip_mm));%	#	Terrestrial Longwave Radiation (kJ/m2/d)
 	La 		= longwave(AE, Tav);%					#	Atmospheric Longwave Radiation (kJ/m2/d)
 	G 		= 173;%								#	Ground Condution (kJ/m2/d) 
-	P 		= Cw .* R_m .* Tav;%					# 	Precipitation Heat (kJ/m2/d)
+	P 		= Cw .* R_m .* Tav/30;%					# 	Precipitation Heat (kJ/m2/d), divide precipitation by thirty since it already contains amount
 
     
     
@@ -79,8 +78,6 @@ for i=1:length(vs) rh(i)=(log((10+0.001)/0.001)*log((2+0.0002)/0.0002))/(0.41*0.
 	S(1)=solar(1)*(1-Albedo(1));
 	H(1)= 1.29*(Tav(1)-SnowTemp(1))./rh(1);% 
 	E(1) = lambdaV*(rhoa(1)-rhos(1))./rh(1);
-    EV = lambdaS*(rhoa(1)-rhos(1))./rh(1);
-    if SnowTemp(1)<0  E(1)=EV;end
 	if startingSnowDepth_m>0
     	TE(1)=0.97;
     else TE(1)=SurfEmissiv;end
@@ -95,45 +92,60 @@ for i=1:length(vs) rh(i)=(log((10+0.001)/0.001)*log((2+0.0002)/0.0002))/(0.41*0.
 	SnowDepth(1)= max(0,(SnowWaterEqYest + NewSnowWatEq(1)-SnowMelt(1))*WaterDens/SnowDensity(1));
 	SnowWaterEq(1)= max(0,SnowWaterEqYest-SnowMelt(1)+NewSnowWatEq(1));	
     if subornot
-        [Sublimation(1),SnowWaterEq(1),SnowDepth(1),SnowDensity(1)]=est_sub(EV,SnowWaterEq(1),SnowDepth(1),SnowDensity(1));
+        [Sublimation(1),SnowWaterEq(1),SnowDepth(1),SnowDensity(1)]=est_sub(E(1),SnowWaterEq(1),SnowDepth(1),SnowDensity(1));
     end
     
     
 for i=2:length(vs)
-    	if NewSnow(i)>0;
-         Albedo(i)=0.98-(0.98-Albedo(i-1))*exp(-40*NewSnow(i)/30);
+    	if NewSnowWatEq(i)-R_m(i)>0;
+         Albedo(i)=0.98-(0.98-Albedo(i-1))*exp(-40*((NewSnow(i)-R_m(i))/30));
         else
-            if SnowDepth(i-1)<0.1
+            if SnowDepth(i-1)<0.15
                 Albedo(i) = max(groundAlbedo,0.5+(groundAlbedo-0.85)/10);
             else
-                Albedo(i) = 0.35-(0.35-0.98)*exp(-1*(0.177+(log(1e-5+(-0.3+0.98)/(-.3+Albedo(i-1))))^2.16)^0.46);
+                lastalbedo=Albedo(i-1);
+                for jj=1:30
+                lastalbedo = 0.35-(0.35-0.98)*exp(-1*(0.177+(log(1e-5+(-0.3+0.98)/(-.3+lastalbedo)))^2.16)^0.46);
+                end          
+                Albedo(i)=lastalbedo;
             end
         end
         S(i)=solar(i)*(1-Albedo(i-1));
         if SnowDepth(i-1)>0 TE(i)=0.97;end
 		if(SnowWaterEq(i-1) > 0 | NewSnowWatEq(i) > 0) 
 			DCoef(i) = 6.2;
-			if SnowMelt(i-1) == 0 
-				SnowTemp(i) = max(min(0,tmin(i)),min(0,(SnowTemp(i-1)+min(-SnowTemp(i-1),Energy(i-1)/((SnowDensity(i-1)*SnowDepth(i-1)+NewSnow(i)*NewSnowDensity(i))*SnowHeatCap*1000)))));
+			if SnowMelt(i-1)-NewSnowWatEq(i-1) <=0 
+				lasttemp=SnowTemp(i-1);
+                lastswe=SnowDensity(i-1)*SnowDepth(i-1);
+                for jj=1:30
+                lasttemp = max(min(0,tmin(i)),min(0,(lasttemp+min(-lasttemp,Energy(i-1)/30/((lastswe+NewSnow(i)*NewSnowDensity(i)/30)*SnowHeatCap*1000)))));
+                lastswe=lastswe+NewSnow(i)*NewSnowDensity(i)/30;  % this will overpredict snow since no melt is assumed
+                end
+                SnowTemp(i)=lasttemp;
+                % force snow temp to be < or = to mean
+                SnowTemp(i)=min(SnowTemp(i),Tav(i));
+            else
+                SnowTemp(i)=0;
             end
         end
-		rhos(i) = calcsatvap(SnowTemp(i));
+        Ri(i)=StabilityCorrection(2,0,SnowTemp(i),tmax(i),vs(i));
+        rh(i)=rh(i)/Ri(i);
+		rhos(i) = calcsatvap2(SnowTemp(i));
+        %rhos(i)=rhos(i)*.98;  % adjust for sat vap over ice
 		H(i) = 1.29*(Tav(i)-SnowTemp(i))/rh(i);
 		E(i) = lambdaV*(rhoa(i)-rhos(i))/rh(i);
-        EV = lambdaS*(rhoa(i)-rhos(i))./rh(i);
-        if SnowTemp(i)<0  E(i)=EV;end
 		Lt(i) = longwave(TE(i),SnowTemp(i));
 		Energy(i) = S(i) + La(i) - Lt(i) + H(i) + E(i) + G + P(i);
         Energy(i)=Energy(i)*30;
 		if Energy(i)>0 k = 2; else k =1;end
-		if SnowDepth(i-1)+NewSnow(i)>0
-		SnowDensity(i) = min(450,((SnowDensity(i-1)+k*30*(450-SnowDensity(i-1))*exp(-DCoef(i)))*SnowDepth(i-1) + NewSnowDensity(i)*NewSnow(i))/(SnowDepth(i-1)+NewSnow(i)));
+		if SnowDepth(i-1)+NewSnow(i)>0  
+		SnowDensity(i) = min(450,(((SnowDensity(i-1)+k*30*(450-SnowDensity(i-1))*exp(-DCoef(i)))*SnowDepth(i-1)) + NewSnowDensity(i)*NewSnow(i))/(SnowDepth(i-1)+NewSnow(i)));
         else SnowDensity(i)= 450;end
 		SnowMelt(i) = max(0,	min( (SnowWaterEq(i-1)+NewSnowWatEq(i)),(Energy(i)-SnowHeatCap*(SnowWaterEq(i-1)+NewSnowWatEq(i))*WaterDens*(0-SnowTemp(i)))/(LatHeatFreez*WaterDens) )  );
-		SnowDepth(i) = max(0,(SnowWaterEq(i-1)+NewSnowWatEq(i)-SnowMelt(i))*WaterDens/SnowDensity(i));%
+        SnowDepth(i) = max(0,(SnowWaterEq(i-1)+NewSnowWatEq(i)-SnowMelt(i))*WaterDens/SnowDensity(i));%
 		SnowWaterEq(i) = max(0,SnowWaterEq(i-1)-SnowMelt(i)+NewSnowWatEq(i));%
         if subornot
-            [Sublimation(i),SnowWaterEq(i),SnowDepth(i),SnowDensity(i)]=est_sub(EV,SnowWaterEq(i),SnowDepth(i),SnowDensity(i));
+            [Sublimation(i),SnowWaterEq(i),SnowDepth(i),SnowDensity(i)]=est_sub(E(i),SnowWaterEq(i),SnowDepth(i),SnowDensity(i));
         end
 end
 SnowWaterEq=single(SnowWaterEq);SnowMelt=single(SnowMelt);
